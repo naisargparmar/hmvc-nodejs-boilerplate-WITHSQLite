@@ -5,7 +5,6 @@ const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
 const path = require('path');
 const swaggerJsdoc = require('swagger-jsdoc');
-const swaggerUi = require('swagger-ui-express');
 
 // Load environment variables
 dotenv.config();
@@ -24,7 +23,7 @@ app.use(helmet());
 // CORS configuration
 const allowedOrigins = process.env.ALLOWED_ORIGINS ? 
   process.env.ALLOWED_ORIGINS.split(',') : 
-  ['http://localhost:3000', 'http://localhost:8080'];
+  ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8080'];
 
 app.use(cors({
   origin: allowedOrigins,
@@ -57,10 +56,14 @@ app.use('/api/auth', authRoutes);
 
 // Swagger setup
 const { specs } = require('./swagger.js');
+// Serve static files for Swagger UI
+const swaggerUi = require('swagger-ui-express');
+const swaggerUiDist = require('swagger-ui-dist');
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 // 404 handler
-app.use('*', (req, res) => {
+app.use((req, res) => {
+// app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
     error: 'Route not found'

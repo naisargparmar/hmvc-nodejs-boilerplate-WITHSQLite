@@ -24,7 +24,11 @@ const config = {
   outfile: 'dist/app.js',
   minify: true,
   sourcemap: true,
-  external: ['node_modules/*'],
+  external: [
+    'swagger-ui-dist',
+    'swagger-ui-express',
+    'sqlite3'
+  ],
   format: 'cjs',
   logLevel: 'info'
 };
@@ -34,7 +38,23 @@ const watch = process.argv.includes('--watch');
 
 if (watch) {
   console.log('Starting watch mode...');
-  esbuild.watch(config)
+  // For esbuild 0.28.0, we need to use a different approach for watch mode
+  const { build } = require('esbuild');
+  build(config)
+    .then(() => {
+      // Watch mode implementation for esbuild 0.28.0
+      const chokidar = require('chokidar');
+      const watcher = chokidar.watch('.', {
+        ignored: ['node_modules', 'dist', '.git'],
+        persistent: true
+      });
+      
+      watcher.on('change', () => {
+        console.log('Change detected, rebuilding...');
+        build(config)
+          .catch(() => process.exit(1));
+      });
+    })
     .catch(() => process.exit(1));
 } else {
   esbuild.build(config)
