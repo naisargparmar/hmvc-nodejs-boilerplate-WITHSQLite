@@ -61,6 +61,7 @@ A RESTful API built with Node.js, Express, and SQLite following the HMVC archite
 1. Clone the repository
 2. Install dependencies:
    ```bash
+   nvm use 24.14.1
    npm install
    ```
 3. Set up environment variables in `.env` file (refer to `.env.example`)
