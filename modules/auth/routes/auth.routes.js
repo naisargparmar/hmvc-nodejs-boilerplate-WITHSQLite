@@ -3,6 +3,7 @@ const router = express.Router();
 const Auth = require('../models/auth.model');
 const User = require('../../user/models/user.model');
 const Joi = require('joi');
+const authMiddleware = require('../../../middleware/auth');
 
 // Validation schemas
 const loginSchema = Joi.object({
@@ -70,7 +71,7 @@ const registerSchema = Joi.object({
  *                           example: 1
  *                         username:
  *                           type: string
- *                           example: "john_doe"
+ *                           example: "naisarg"
  *                         email:
  *                           type: string
  *                           example: "user@example.com"
@@ -180,7 +181,7 @@ router.post('/login', (req, res) => {
  *             properties:
  *               username:
  *                 type: string
- *                 example: "john_doe"
+ *                 example: "naisarg"
  *               email:
  *                 type: string
  *                 format: email
@@ -190,10 +191,10 @@ router.post('/login', (req, res) => {
  *                 example: "password123"
  *               first_name:
  *                 type: string
- *                 example: "John"
+ *                 example: "Naisarg"
  *               last_name:
  *                 type: string
- *                 example: "Doe"
+ *                 example: "Parmar"
  *               phone:
  *                 type: string
  *                 example: "+1234567890"
@@ -225,7 +226,7 @@ router.post('/login', (req, res) => {
  *                           example: 1
  *                         username:
  *                           type: string
- *                           example: "john_doe"
+ *                           example: "naisarg"
  *                         email:
  *                           type: string
  *                           example: "user@example.com"

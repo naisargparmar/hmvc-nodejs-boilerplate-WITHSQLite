@@ -12,6 +12,10 @@ dotenv.config();
 // Import routes
 const userRoutes = require('./modules/user/routes/user.routes');
 const authRoutes = require('./modules/auth/routes/auth.routes');
+const roleRoutes = require('./modules/rbac/routes/role.routes');
+const permissionRoutes = require('./modules/rbac/routes/permission.routes');
+const userRoleRoutes = require('./modules/rbac/routes/userRole.routes');
+const rolePermissionRoutes = require('./modules/rbac/routes/rolePermission.routes');
 
 // Initialize express app
 const app = express();
@@ -53,6 +57,10 @@ app.get('/', (req, res) => {
 // API routes
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/roles', roleRoutes);
+app.use('/api/permissions', permissionRoutes);
+app.use('/api/user-roles', userRoleRoutes);
+app.use('/api/role-permissions', rolePermissionRoutes);
 
 // Swagger setup
 const { specs } = require('./swagger.js');
