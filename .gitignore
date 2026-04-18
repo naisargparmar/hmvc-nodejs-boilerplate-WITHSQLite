@@ -3,3 +3,4 @@ node_modules
 booking.db
 database/sqlite.db
 dist/
+*.db

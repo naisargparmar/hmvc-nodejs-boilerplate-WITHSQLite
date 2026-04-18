@@ -29,13 +29,18 @@ class User {
 
   // Find user by ID
   static findById(id, callback) {
-    const query = `SELECT id, username, email, first_name, last_name, phone, created_at, updated_at 
+    const query = `SELECT id, username, email, password, first_name, last_name, phone, created_at, updated_at 
                    FROM users WHERE id = ?`;
     
     db.get(query, [id], (err, row) => {
       if (err) {
+        console.error('Database error in findById:', err);
         callback(err, null);
       } else {
+        console.log('User found by ID:', row); // Debugging log
+        if (row) {
+          console.log('Password field in user:', row.password);
+        }
         callback(null, row);
       }
     });
@@ -219,6 +224,27 @@ class User {
       } else {
         callback(null, row.count > 0);
       }
+    });
+  }
+
+  // Update user password
+  static updatePassword(userId, newPassword, callback) {
+    // Hash new password
+    bcrypt.hash(newPassword, 10, (err, hashedPassword) => {
+      if (err) {
+        return callback(err, null);
+      }
+      
+      const query = `UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+      const params = [hashedPassword, userId];
+      
+      db.run(query, params, function(err) {
+        if (err) {
+          callback(err, null);
+        } else {
+          callback(null, { success: true, message: 'Password updated successfully' });
+        }
+      });
     });
   }
 }

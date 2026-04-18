@@ -4,6 +4,7 @@ const Auth = require('../models/auth.model');
 const User = require('../../user/models/user.model');
 const Joi = require('joi');
 const authMiddleware = require('../../../middleware/auth');
+const bcrypt = require('bcryptjs');
 
 // Validation schemas
 const loginSchema = Joi.object({
@@ -496,29 +497,213 @@ router.post('/logout', (req, res) => {
  *                   example: "Error message"
  * */
 router.post('/refresh', (req, res) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+   const authHeader = req.headers['authorization'];
+   const token = authHeader && authHeader.split(' ')[1];
+   
+   if (!token) {
+     return res.status(400).json({
+       success: false,
+       error: 'Token required'
+     });
+   }
+   
+   Auth.refreshToken(token, (err, result) => {
+     if (err) {
+       return res.status(401).json({
+         success: false,
+         error: 'Token refresh failed',
+         message: err.message
+       });
+     }
+     
+     res.json({
+       success: true,
+       message: 'Token refreshed successfully',
+       data: result
+     });
+   });
+ });
+
+/**
+ * @swagger
+ * /api/auth/reset-password:
+ *   post:
+ *     summary: Reset user password
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - oldPassword
+ *               - newPassword
+ *             properties:
+ *               oldPassword:
+ *                 type: string
+ *                 example: "oldpassword123"
+ *               newPassword:
+ *                 type: string
+ *                 example: "newpassword123"
+ *     responses:
+ *       200:
+ *         description: Password reset successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Password reset successfully"
+ *       400:
+ *         description: Validation error or old password incorrect
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Validation error"
+ *                 message:
+ *                   type: string
+ *                   example: "Old password is required"
+ *       401:
+ *         description: Authentication failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Authentication failed"
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid credentials"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Database error"
+ *                 message:
+ *                   type: string
+ *                   example: "Error message"
+ * */
+router.post('/reset-password', authMiddleware, (req, res) => {
+  // Validation schema
+  const resetPasswordSchema = Joi.object({
+    oldPassword: Joi.string().min(6).required(),
+    newPassword: Joi.string().min(6).required()
+  });
   
-  if (!token) {
+  const { error, value } = resetPasswordSchema.validate(req.body);
+  
+  if (error) {
     return res.status(400).json({
       success: false,
-      error: 'Token required'
+      error: 'Validation error',
+      message: error.details[0].message
     });
   }
   
-  Auth.refreshToken(token, (err, result) => {
+  const { oldPassword, newPassword } = value;
+  
+  // Check if user is authenticated (req.user should be available due to authMiddleware)
+  if (!req.user || !req.user.id) {
+    return res.status(401).json({
+      success: false,
+      error: 'Authentication failed',
+      message: 'User not authenticated'
+    });
+  }
+  
+  // Get user from database to verify old password
+  const userId = req.user.id;
+  const User = require('../../user/models/user.model');
+  
+  User.findById(userId, (err, user) => {
     if (err) {
-      return res.status(401).json({
+      // console.error('Database error in findById:', err);
+      return res.status(500).json({
         success: false,
-        error: 'Token refresh failed',
+        error: 'Database error',
         message: err.message
       });
     }
     
-    res.json({
-      success: true,
-      message: 'Token refreshed successfully',
-      data: result
+    console.log('User found in DB:', user);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found',
+        message: 'User not found'
+      });
+    }
+    
+    // Compare old password with stored password
+    // console.log('Comparing passwords:', { oldPassword, userPassword: user.password });
+    bcrypt.compare(oldPassword, user.password || '', (err, isMatch) => {
+      if (err) {
+        return res.status(500).json({
+          success: false,
+          error: 'Password comparison error',
+          message: err.message
+        });
+      }
+      
+      if (!isMatch) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid credentials',
+          message: 'Old password is incorrect'
+        });
+      }
+      
+      // Update password using User model static method
+      User.updatePassword(userId, newPassword, (err, result) => {
+        if (err) {
+          return res.status(500).json({
+            success: false,
+            error: 'Database error',
+            message: err.message
+          });
+        }
+        
+        // Expire all the existing token after password reset
+        Auth.logoutAll(user.id, (err, logoutResult) => {
+          if (err) {
+            console.error('Error logging out user after password reset:', err);
+            // Continue with success response even if logout fails
+          }
+          res.json({
+            success: true,
+            message: 'Password reset successfully 1'
+          });
+        });
+      });
     });
   });
 });

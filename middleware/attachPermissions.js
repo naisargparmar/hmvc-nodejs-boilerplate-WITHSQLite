@@ -61,7 +61,7 @@ const attachPermissions = async (req, res, next) => {
       };
     });
 
-    console.log('User\'s permissionsDetailed:', permissionsDetailed); // Debugging log
+    // console.log('User\'s permissionsDetailed:', permissionsDetailed); // Debugging log
     // [
     //   { resource: 'user', action: 'read', scope: 'own' },
     //   { resource: 'user', action: 'update', scope: 'own' },
