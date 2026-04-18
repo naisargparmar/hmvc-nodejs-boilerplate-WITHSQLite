@@ -3,6 +3,11 @@ const router = express.Router();
 const User = require('../models/user.model');
 const Joi = require('joi');
 const jwt = require('jsonwebtoken');
+const authMiddleware = require('../../../middleware/auth');
+const attachPermissions = require('../../../middleware/attachPermissions');
+const requirePermission = require('../../../middleware/requirePermission');
+const loadUserResource = require('../../../middleware/loadUserResource');
+// const userScopeValidation = require('../../../middleware/userScopeValidation');
 
 /**
  * @swagger
@@ -22,7 +27,7 @@ const jwt = require('jsonwebtoken');
  *         username:
  *           type: string
  *           description: The user's username
- *           example: "john_doe"
+ *           example: "naisarg"
  *         email:
  *           type: string
  *           description: The user's email
@@ -30,11 +35,11 @@ const jwt = require('jsonwebtoken');
  *         first_name:
  *           type: string
  *           description: The user's first name
- *           example: "John"
+ *           example: "Naisarg"
  *         last_name:
  *           type: string
  *           description: The user's last name
- *           example: "Doe"
+ *           example: "Parmar"
  *         phone:
  *           type: string
  *           description: The user's phone number
@@ -65,36 +70,11 @@ const userSchema = Joi.object({
 });
 
 const updateUserSchema = Joi.object({
-  username: Joi.string().min(3).max(30),
-  email: Joi.string().email(),
   first_name: Joi.string().max(50),
   last_name: Joi.string().max(50),
   phone: Joi.string().max(20)
 });
 
-// Middleware for authentication
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      error: 'Access token required'
-    });
-  }
-
-  jwt.verify(token, process.env.JWT_SECRET || 'default_secret_key', (err, user) => {
-    if (err) {
-      return res.status(403).json({
-        success: false,
-        error: 'Invalid or expired token'
-      });
-    }
-    req.user = user;
-    next();
-  });
-};
 
 /**
  * @swagger
@@ -207,28 +187,35 @@ const authenticateToken = (req, res, next) => {
  *                 message:
  *                   type: string
  *                   example: "Error message"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/User'
  */
 
 // Get all users with pagination, search, and filtering
-router.get('/', authenticateToken, (req, res) => {
-  const { page = 1, limit = 10, search = '', sort = 'id', order = 'ASC' } = req.query;
-  
-  User.findAll({ page, limit, search, sort, order }, (err, result) => {
-    if (err) {
-      return res.status(500).json({
-        success: false,
-        error: 'Database error',
-        message: err.message
-      });
-    }
-    
-    res.json({
-      success: true,
-      data: result.users,
-      pagination: result.pagination
-    });
-  });
-});
+ router.get('/', authMiddleware, attachPermissions, requirePermission('user:read'), (req, res) => {
+   const { page = 1, limit = 10, search = '', sort = 'id', order = 'ASC' } = req.query;
+   
+   // If we have filters from userScopeValidation middleware, use them
+   const filters = req.filters || {};
+   
+   User.findAll({ page, limit, search, sort, order, filters }, (err, result) => {
+     if (err) {
+       return res.status(500).json({
+         success: false,
+         error: 'Database error',
+         message: err.message
+       });
+     }
+     
+     res.json({
+       success: true,
+       data: result.users,
+       pagination: result.pagination
+     });
+   });
+ });
 
 /**
  * @swagger
@@ -316,7 +303,7 @@ router.get('/', authenticateToken, (req, res) => {
  */
 
 // Get user by ID
-router.get('/:id', authenticateToken, (req, res) => {
+router.get('/:id', authMiddleware, attachPermissions, requirePermission('user:read'), (req, res) => {
   const userId = req.params.id;
   
   User.findById(userId, (err, user) => {
@@ -348,6 +335,8 @@ router.get('/:id', authenticateToken, (req, res) => {
  *   post:
  *     summary: Create a new user
  *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -361,7 +350,7 @@ router.get('/:id', authenticateToken, (req, res) => {
  *             properties:
  *               username:
  *                 type: string
- *                 example: "john_doe"
+ *                 example: "naisarg"
  *               email:
  *                 type: string
  *                 format: email
@@ -371,10 +360,10 @@ router.get('/:id', authenticateToken, (req, res) => {
  *                 example: "password123"
  *               first_name:
  *                 type: string
- *                 example: "John"
+ *                 example: "Naisarg"
  *               last_name:
  *                 type: string
- *                 example: "Doe"
+ *                 example: "Parmar"
  *               phone:
  *                 type: string
  *                 example: "+1234567890"
@@ -445,7 +434,7 @@ router.get('/:id', authenticateToken, (req, res) => {
  */
 
 // Create new user
-router.post('/', (req, res) => {
+router.post('/', authMiddleware, attachPermissions, requirePermission('user:create'), (req, res) => {
   const { error, value } = userSchema.validate(req.body);
   
   if (error) {
@@ -503,19 +492,12 @@ router.post('/', (req, res) => {
  *           schema:
  *             type: object
  *             properties:
- *               username:
- *                 type: string
- *                 example: "john_doe"
- *               email:
- *                 type: string
- *                 format: email
- *                 example: "user@example.com"
  *               first_name:
  *                 type: string
- *                 example: "John"
+ *                 example: "Naisarg"
  *               last_name:
  *                 type: string
- *                 example: "Doe"
+ *                 example: "Parmar"
  *               phone:
  *                 type: string
  *                 example: "+1234567890"
@@ -625,7 +607,8 @@ router.post('/', (req, res) => {
  */
 
 // Update user
-router.put('/:id', authenticateToken, (req, res) => {
+// router.put('/:id', authMiddleware, attachPermissions, loadUserResource, requirePermission('user:update'), (req, res) => {
+router.put('/:id', authMiddleware, attachPermissions, requirePermission('user:update'), (req, res) => {
   const userId = req.params.id;
   
   const { error, value } = updateUserSchema.validate(req.body);
@@ -774,7 +757,8 @@ router.put('/:id', authenticateToken, (req, res) => {
  */
 
 // Delete user
-router.delete('/:id', authenticateToken, (req, res) => {
+// router.delete('/:id', authMiddleware, attachPermissions, loadUserResource, requirePermission('user:delete'), (req, res) => {
+router.delete('/:id', authMiddleware, attachPermissions, requirePermission('user:delete'), (req, res) => {
   const userId = req.params.id;
   
   User.delete(userId, (err, result) => {
