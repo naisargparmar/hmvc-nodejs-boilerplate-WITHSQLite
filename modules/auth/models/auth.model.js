@@ -135,6 +135,19 @@ class Auth {
       });
     });
   }
+
+  // Logout all tokens for a user
+  static logoutAll(userId, callback) {
+    const query = `UPDATE auth_tokens SET is_active = 0 WHERE user_id = ?`;
+    
+    db.run(query, [userId], function(err) {
+      if (err) {
+        callback(err, null);
+      } else {
+        callback(null, { loggedOut: true });
+      }
+    });
+  }
 }
 
 module.exports = Auth;
